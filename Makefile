@@ -3,4 +3,4 @@ CFLAGS=-Wall -Wextra -Werror
 EXEC=wish
 
 all:
-	$(CC) $(CFLAGS) -o $(EXEC) main.c
+	$(CC) $(CFLAGS) -o $(EXEC) wish.c
