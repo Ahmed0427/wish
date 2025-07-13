@@ -45,6 +45,47 @@ void exec_binary(char** argv, int in_fd, int out_fd) {
     }
 }
 
+int exec_builtin(int argc, char** argv) {
+    if (!argv || !argv[0]) return -1;
+
+    if (strcmp(argv[0], "exit") == 0) {
+        exit(0);
+    } else if (strcmp(argv[0], "cd") == 0) {
+        if (argc != 2) {
+            fprintf(stderr, "An error has occurred\n");
+            exit(0);
+        }
+        if (chdir(argv[1]) != 0) {
+            perror("chdir failed");
+            exit(1);
+        }
+
+    } else if (strcmp(argv[0], "pwd") == 0) {
+        char cwd[4094] = {0};
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("getcwd failed");
+        } else {
+            printf("%s\n", cwd);
+        }
+    } else if (strcmp(argv[0], "path") == 0) {
+        for (int i = 1; argv[i]; i++) {
+            size_t arg_len = strlen(argv[i]);
+            if (argv[i][arg_len - 1] == '/') {
+                argv[i][arg_len - 1] = '\0';
+            }
+        }
+        char *new_path = join(argv + 1, argc - 1, ":");
+        if (setenv("PATH", new_path, 1) == -1) {
+            perror("setenv failed"); 
+            exit(EXIT_FAILURE);
+        }
+        printf("%s\n", getenv("PATH"));
+    } else {
+        return -1;
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     char *line = NULL;
     size_t line_len = 0;
@@ -66,7 +107,15 @@ int main(int argc, char** argv) {
     }
 
     while (1) {
-        if (argc == 1) printf("wish> ");
+        if (argc == 1) {
+            char cwd[4094] = {0};
+            if (getcwd(cwd, sizeof(cwd)) == NULL) {
+                perror("getcwd failed");
+                exit(1);
+            }
+            printf("[%s]\n", cwd);
+            printf("> ");
+        }
         ssize_t read = getline(&line, &line_len, stream);
         if (read == -1) {
             fclose(stream);
@@ -82,7 +131,9 @@ int main(int argc, char** argv) {
             perror("tokenize failed");
             exit(EXIT_FAILURE);
         }
-        exec_binary(toks, STDIN_FILENO, STDOUT_FILENO);
+        if (exec_builtin(toks_cnt, toks) == -1) {
+            exec_binary(toks, STDIN_FILENO, STDOUT_FILENO);
+        }
         free_str_arr(toks, toks_cnt);
     }
     if (line) free(line);
