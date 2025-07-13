@@ -21,57 +21,6 @@ void print_str_arr(char** arr, int cnt) {
     }
 }
 
-int read_file(const char* path, unsigned char** data, int* size) {
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        *data = NULL;
-        *size = 0;
-        return -1;
-    }
-
-    int fsize = lseek(fd, 0, SEEK_END);
-    if (fsize == -1) {
-        perror("lseek error");
-        close(fd);
-        return -1;
-    }
-    lseek(fd, 0, SEEK_SET);
-
-    unsigned char* buf = malloc(fsize);
-    if (!buf) {
-        close(fd);
-        return -1;
-    }
-
-    int rb = read(fd, buf, fsize);
-    if (rb != fsize) {
-        perror("read error");
-        free(buf);
-        close(fd);
-        return -1;
-    }
-
-    *size = fsize;
-    *data = buf;
-    close(fd);
-    return 0;
-}
-
-int write_file(const char* path, const unsigned char* data,
-               size_t size, int mode) {
-
-    int fd = open(path, O_CREAT | O_RDWR | O_TRUNC, mode);
-    if (fd == -1) {
-        fprintf(stderr, "'%s' failed to write: %s\n", path, strerror(errno));
-        return -1;
-    }
-
-    ssize_t wb = write(fd, data, size);
-    close(fd);
-
-    return (wb == (ssize_t)size) ? 0 : -1;
-}
-
 char** split(char* org_str, const char* del, size_t* toks_cnt) {
     char* str = strdup(org_str);
 

@@ -5,86 +5,9 @@
 #include <sys/wait.h>
 
 #include "utils.h"
-
-#define EXIT_CMD_NOT_FOUND 127
-#define EXIT_NOT_EXECUTABLE 126
+#include "exec_cmd.h"
 
 int last_exit_code = 0;
-
-void exec_binary(char** argv, int in_fd, int out_fd) {
-    pid_t cpid = fork();
-    if (cpid == -1) {
-        return;
-    } else if (cpid == 0) {
-        size_t paths_cnt = 0;
-        char** paths = split(getenv("PATH"), ":", &paths_cnt);
-        for (int i = 0; paths[i]; i++) {
-            char *toks[] = {paths[i], argv[0]};
-            char *pathname = join(toks, 2, "/");
-            if (pathname == NULL) return;
-            if (access(pathname, X_OK) == 0) {
-                dup2(in_fd, STDIN_FILENO);
-                dup2(out_fd, STDOUT_FILENO);
-                execv(pathname, argv);    
-                perror("exec");
-                return;
-            } else if (access(pathname, F_OK) == 0) {
-                perror("wish");
-                exit(EXIT_NOT_EXECUTABLE);
-            }
-        }
-        fprintf(stdout, "wish: command not found\n");
-        exit(EXIT_CMD_NOT_FOUND);
-    }
-
-    int status;
-    waitpid(cpid, &status, 0);
-
-    if (WIFEXITED(status)) {
-        last_exit_code = WEXITSTATUS(status);
-    }
-}
-
-int exec_builtin(int argc, char** argv) {
-    if (!argv || !argv[0]) return -1;
-
-    if (strcmp(argv[0], "exit") == 0) {
-        exit(0);
-    } else if (strcmp(argv[0], "cd") == 0) {
-        if (argc != 2) {
-            fprintf(stderr, "An error has occurred\n");
-            exit(0);
-        }
-        if (chdir(argv[1]) != 0) {
-            perror("chdir failed");
-            exit(1);
-        }
-
-    } else if (strcmp(argv[0], "pwd") == 0) {
-        char cwd[4094] = {0};
-        if (getcwd(cwd, sizeof(cwd)) == NULL) {
-            perror("getcwd failed");
-        } else {
-            printf("%s\n", cwd);
-        }
-    } else if (strcmp(argv[0], "path") == 0) {
-        for (int i = 1; argv[i]; i++) {
-            size_t arg_len = strlen(argv[i]);
-            if (argv[i][arg_len - 1] == '/') {
-                argv[i][arg_len - 1] = '\0';
-            }
-        }
-        char *new_path = join(argv + 1, argc - 1, ":");
-        if (setenv("PATH", new_path, 1) == -1) {
-            perror("setenv failed"); 
-            exit(EXIT_FAILURE);
-        }
-        printf("%s\n", getenv("PATH"));
-    } else {
-        return -1;
-    }
-    return 0;
-}
 
 int main(int argc, char** argv) {
     char *line = NULL;
@@ -131,9 +54,7 @@ int main(int argc, char** argv) {
             perror("tokenize failed");
             exit(EXIT_FAILURE);
         }
-        if (exec_builtin(toks_cnt, toks) == -1) {
-            exec_binary(toks, STDIN_FILENO, STDOUT_FILENO);
-        }
+        last_exit_code = exec_cmd(toks, toks_cnt);
         free_str_arr(toks, toks_cnt);
     }
     if (line) free(line);
