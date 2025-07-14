@@ -1,3 +1,3 @@
-#!/usr/bin/env bash
+#!/bin/bash
 cd tests/p2a-test
 ls

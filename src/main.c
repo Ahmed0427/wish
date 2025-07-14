@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 
 #include "utils.h"
+#include "parser.h"
 #include "exec_cmd.h"
 
 int last_exit_code = 0;
@@ -16,11 +17,11 @@ int main(int argc, char** argv) {
     if (argc == 2) {
         stream = fopen(argv[1], "r");
         if (stream == NULL) {
-            perror("fopen failed");
+            fprintf(stderr, "An error has occurred\n");
             exit(EXIT_FAILURE);
         }
     } else if (argc > 2) {
-        fprintf(stderr, "Usage: %s [file]\n", argv[0]);
+        fprintf(stderr, "An error has occurred\n");
         exit(EXIT_FAILURE);
     }
 
@@ -47,14 +48,20 @@ int main(int argc, char** argv) {
         }
         size_t toks_cnt = 0;
         line[read - 1] = '\0'; 
-        char** toks = split(line, " \t",&toks_cnt);
+        char** toks = split(line, " \t", &toks_cnt);
         if (toks == NULL) {
             fclose(stream);
             if (line) free(line);
-            perror("tokenize failed");
+            perror("split failed");
             exit(EXIT_FAILURE);
         }
-        last_exit_code = exec_cmd(toks, toks_cnt);
+
+        struct cmd *cmd = parse(toks);
+        // print_cmd(cmd, 0);
+        if (!cmd) fprintf(stderr, "An error has occurred\n");
+        else exec_cmd(cmd);
+        free_cmd(cmd);
+
         free_str_arr(toks, toks_cnt);
     }
     if (line) free(line);
