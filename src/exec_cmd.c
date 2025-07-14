@@ -12,8 +12,9 @@
 #include "utils.h"
 
 int run(struct cmd *cmd, int in_fd, int out_fd) {
+    if (cmd == NULL) return 0;
+
     int argc = 0;
-    assert(cmd != NULL);
     if (cmd->argv) {
         for (int i = 0; cmd->argv[i]; i++) {
             argc++;
@@ -114,16 +115,9 @@ int run(struct cmd *cmd, int in_fd, int out_fd) {
             close(fd);
             break;
         }
-        case PIPE: {
-            
-            break;
-        }
         case ASYNC: {
-            
-            break;
-        }
-        case SEQ: {
-            
+            run(cmd->left, in_fd, out_fd);        
+            run(cmd->right, in_fd, out_fd);        
             break;
         }
     }

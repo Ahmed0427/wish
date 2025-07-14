@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <stdio.h>
 
 #include "parser.h"
@@ -28,7 +29,9 @@ struct cmd *parse_exec_or_redir(char **toks, int *i) {
             redir->right = NULL;
             redir->redir_type = (strcmp(toks[*i], "<") == 0) ? 0 : 1;
             (*i)++;  // consume < or >
-            if (toks[*i]) redir->redir_file = strdup(toks[*i]);
+            if (toks[*i]) {
+                redir->redir_file = strdup(toks[*i]);
+            }
             else {
                 free(redir);
                 free(cmd->argv);
@@ -37,35 +40,25 @@ struct cmd *parse_exec_or_redir(char **toks, int *i) {
             }
             (*i)++;  // consume filename
             
-            if (toks[*i] || argc == 0) return NULL;
+            if (toks[*i] && strcmp(toks[*i], "&") != 0) {
+                return NULL; 
+            }
+            else if (argc == 0) {
+                return NULL;
+            }
             return redir;
         }
 
         cmd->argv[argc++] = strdup(toks[*i]);
         (*i)++;
     }
-
+    
     cmd->argv[argc] = NULL;
     return cmd;
 }
 
-struct cmd *parse_pipe(char **toks, int *i) {
-    struct cmd *cmd = parse_exec_or_redir(toks, i);
-    if (cmd == NULL) return NULL;
-    while (toks[*i] && strcmp(toks[*i], "|") == 0) {
-        (*i)++;  // consume |
-        struct cmd *pipe = malloc(sizeof(*pipe));
-        pipe->type = PIPE;
-        pipe->left = cmd;
-        pipe->right = parse_pipe(toks, i);
-        pipe->argv = NULL;
-        cmd = pipe;
-    }
-    return cmd;
-}
-
 struct cmd *parse_async(char **toks, int* i) {
-    struct cmd *cmd = parse_pipe(toks, i);
+    struct cmd *cmd = parse_exec_or_redir(toks, i);
     if (cmd == NULL) return NULL;
     while (toks[*i] && strcmp(toks[*i], "&") == 0) {
         (*i)++;  // consume &
@@ -79,24 +72,9 @@ struct cmd *parse_async(char **toks, int* i) {
     return cmd;
 }
 
-struct cmd *parse_seq(char **toks, int *i) {
-    struct cmd *cmd = parse_async(toks, i);
-    if (cmd == NULL) return NULL;
-    while (toks[*i] && strcmp(toks[*i], ";") == 0) {
-        (*i)++;  // consume ;
-        struct cmd *seq = malloc(sizeof(*seq));
-        seq->type = SEQ;
-        seq->left = cmd;
-        seq->right = parse_seq(toks, i);
-        seq->argv = NULL;
-        cmd = seq;
-    }
-    return cmd;
-}
-
 struct cmd *parse(char **toks) {
     int i = 0;
-    return parse_seq(toks, &i);
+    return parse_async(toks, &i);
 }
 
 void print_cmd(struct cmd *cmd, int indent) {
@@ -111,19 +89,11 @@ void print_cmd(struct cmd *cmd, int indent) {
             }
             printf("\n");
             break;
-
-        case PIPE:
-            printf("PIPE:\n");
+        case ASYNC:
+            printf("ASYNC:\n");
             print_cmd(cmd->left, indent + 1);
             print_cmd(cmd->right, indent + 1);
             break;
-
-        case SEQ:
-            printf("SEQ:\n");
-            print_cmd(cmd->left, indent + 1);
-            print_cmd(cmd->right, indent + 1);
-            break;
-
         case REDIR:
             printf("REDIR (%s):\n", cmd->redir_type == 0 ? "<" : ">");
             for (int i = 0; i < indent + 1; i++) printf("  ");
@@ -157,8 +127,6 @@ void free_cmd(struct cmd *cmd) {
             free(cmd);
             break;
 
-        case PIPE:
-        case SEQ:
         case ASYNC:
             free_cmd(cmd->left);
             free_cmd(cmd->right);

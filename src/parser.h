@@ -1,7 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-enum node_type { EXEC, PIPE, SEQ, REDIR, ASYNC};
+enum node_type { EXEC, REDIR, ASYNC};
 
 struct cmd {
     enum node_type type;

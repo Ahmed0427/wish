@@ -54,6 +54,8 @@ int main(int argc, char** argv) {
             if (line) free(line);
             perror("split failed");
             exit(EXIT_FAILURE);
+        } else if (toks_cnt == 0) {
+            continue;
         }
 
         struct cmd *cmd = parse(toks);
